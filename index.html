@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#070b16">
+  <meta name="description" content="두드리고, 합치고, 별을 빚는 루멘 포지">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="루멘 포지">
+  <meta property="og:title" content="루멘 포지">
+  <meta property="og:description" content="두드리고, 합치고, 별을 빚으세요.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://s73325475-cyber.github.io/lumen-forge/">
+  <link rel="canonical" href="https://s73325475-cyber.github.io/lumen-forge/">
+  <title>루멘 포지</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23140e12'/%3E%3Ccircle cx='32' cy='32' r='14' fill='%23ffb15a'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css?v=77">
+</head>
+<body>
+  <div id="app">
+    <canvas id="stars" aria-hidden="true"></canvas>
+
+    <section id="start">
+      <div class="hero-gems" aria-hidden="true">
+        <div class="gem t2"></div>
+        <div class="gem t6"></div>
+        <div class="gem t9"></div>
+      </div>
+      <p class="eyebrow">LUMEN FORGE</p>
+      <h1>루멘 포지</h1>
+      <p class="tag">두드리고, 합치고, 별을 빚으세요.</p>
+      <ul class="rules">
+        <li><b>두드리기</b><span>별을 탭하면 에너지가 차고 먼지가 떨어집니다.</span></li>
+        <li><b>합치기</b><span>같은 조각을 이웃 칸에 겹치면 다음 등급이 됩니다.</span></li>
+        <li><b>납품</b><span>필요한 개수가 모이면 카드를 눌러 한 번에 납품합니다.</span></li>
+      </ul>
+      <p id="blurb" class="blurb"></p>
+      <button id="continue" class="btn primary" type="button" hidden>이어하기</button>
+      <button id="fresh" class="btn primary" type="button">시작하기</button>
+      <button id="wipe" class="btn ghost" type="button" hidden>처음부터</button>
+    </section>
+
+    <div id="play" hidden>
+      <header>
+        <div>
+          <p class="eyebrow">LUMEN FORGE</p>
+          <h1>루멘 포지</h1>
+        </div>
+        <div class="stats">
+          <div class="iconrow">
+            <button id="sound" type="button" aria-label="소리" aria-pressed="true">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4V9zm11.5 3a3.5 3.5 0 0 0-1.5-2.9v5.8a3.5 3.5 0 0 0 1.5-2.9z"/></svg>
+            </button>
+            <button id="help" type="button" aria-label="도움">?</button>
+          </div>
+          <div class="coin">
+            <i class="coin-gem" aria-hidden="true"></i>
+            <span class="coin-copy">
+              <span>코인</span>
+              <strong id="coins" class="num">0</strong>
+            </span>
+            <button id="coin-plus" type="button" aria-label="광고 보고 코인 받기">+</button>
+          </div>
+        </div>
+      </header>
+      <div class="xp" aria-hidden="true">
+        <i id="xp-fill"></i>
+        <b id="xp-label"></b>
+      </div>
+      <div class="meters">
+        <div id="goal" class="goal"></div>
+        <div class="heatbar" id="heatbar">
+          <i id="heat-fill"></i>
+          <b id="heat-label">화로</b>
+        </div>
+      </div>
+      <div id="coach" class="coach" hidden>
+        <p id="coach-text"></p>
+        <button id="skip-tutor" type="button" aria-label="건너뛰기">»</button>
+      </div>
+      <div id="orders"></div>
+      <div class="stage">
+        <div class="board-wrap">
+          <div id="board"></div>
+        </div>
+        <section class="forge" aria-label="강화">
+          <div class="forge-head">
+            <h2><svg class="mini-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3l7 7-2 2-3-3-6 6 2 2-2 2-2-2-2 2-2-2 2-2-2-2 2-2 2 2 6-6-3-3 2-2z"/></svg>강화</h2>
+            <p id="shop-rank"></p>
+            <button id="auto-buy" class="textbtn" type="button" aria-pressed="false" title="고른 강화를 함께 올립니다. 코인이 부족하면 싼 항목부터 올립니다. 칸을 누르면 그 항목만 켜고 끌 수 있습니다."><svg class="mini-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l6-2 9-9-4-4L6 14l-2 6zm8-12l4 4"/></svg>전체 자동 강화</button>
+          </div>
+          <div id="shop-list"></div>
+        </section>
+      </div>
+      <footer class="dock">
+        <div class="selrow">
+          <p id="sel">같은 등급을 이웃 칸에 겹치면 합쳐집니다.</p>
+          <div id="combo" hidden><b>콤보 2</b><i></i></div>
+          <div class="pips" id="pips"></div>
+        </div>
+        <button id="sell" class="btn small" type="button">분해</button>
+        <div class="tap-wrap" id="tap-wrap">
+          <button id="tap" type="button" aria-label="별 두드리기"><span>두드리기</span><small id="tap-gain" class="num">+16</small></button>
+        </div>
+        <p id="micro" class="micro"></p>
+      </footer>
+    </div>
+
+    <div id="toast" hidden role="status"></div>
+    <div id="fx"></div>
+    <div id="modal" class="modal" hidden>
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <h2 id="modal-title"></h2>
+        <p id="modal-body"></p>
+        <div id="modal-actions" class="modal-actions"></div>
+      </div>
+    </div>
+  </div>
+  <script src="ads.js?v=1"></script>
+  <script src="game.js?v=83"></script>
+</body>
+</html>
