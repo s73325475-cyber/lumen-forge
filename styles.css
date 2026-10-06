@@ -17,6 +17,8 @@ html, body {
   margin: 0;
   height: 100%;
   overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -1279,16 +1281,55 @@ button:focus-visible { outline: 2px solid #ffd56a; outline-offset: 2px; }
   }
 }
 
-@media (max-width: 380px) {
-  .forge { flex-basis: 124px; width: 124px; }
-  .order strong { font-size: 11px; }
-  .order em { font-size: 11px; }
+@media (max-width: 540px) {
+  #play h1 { font-size: 18px; }
+  #orders { gap: 4px; padding: 0 6px 2px; }
+  .order {
+    min-height: 0;
+    padding: 3px 4px 4px;
+    grid-template-columns: 1fr 26px;
+    column-gap: 1px;
+    border-radius: 10px;
+  }
+  .order-k { font-size: 8px; }
+  .order strong { font-size: 10px; gap: 2px; line-height: 1.15; }
+  .order em { font-size: 10px; }
+  .crystal { width: 24px; height: 30px; }
+  .stage { gap: 4px; margin: 0 6px; }
+  #board { gap: 4px; padding: 5px; }
+  .forge {
+    flex: 0 0 30%;
+    width: 30%;
+    max-width: 118px;
+    padding: 4px 4px 3px;
+    gap: 2px;
+  }
+  .forge-head h2 { font-size: 10px; }
+  #shop-rank,
+  #auto-buy,
+  .forge .textbtn { font-size: 8px; }
+  #shop-list { gap: 2px; }
+  .forge .up {
+    align-items: center;
+    gap: 2px;
+    padding: 1px 3px;
+  }
+  .forge .up h3 { font-size: 8px; }
+  .forge .up h3 .num { font-size: 7px; }
+  .forge .up p { font-size: 7px; line-height: 1.15; }
+  .forge .up .btn.small {
+    align-self: center;
+    min-width: 22px;
+    min-height: 0;
+    height: auto;
+    padding: 2px 3px;
+    font-size: 9px;
+  }
 }
 
 @media (max-height: 700px) {
   .tap-wrap { width: 78px; height: 78px; }
   #tap { width: 64px; height: 64px; font-size: 12px; }
   .dock { padding-top: 0; padding-bottom: calc(2px + env(safe-area-inset-bottom)); }
-  .order { min-height: 52px; padding: 4px 5px 5px; }
   #orders { padding-bottom: 2px; }
 }

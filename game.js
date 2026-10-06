@@ -823,7 +823,7 @@
         }
         if (o.type === "hunt") {
           const need = o.count - o.have;
-          const onBoard = state.board.filter((n) => n === o.tier).length;
+          const onBoard = freeCells(o.tier).length;
           const got = Math.min(o.count, o.have + Math.min(onBoard, Math.max(need, 0)));
           const ready = need > 0 && onBoard >= need;
           return `<button class="order hunt${ready ? " ready" : ""}" type="button" data-order="${i}">
@@ -837,7 +837,7 @@
           </button>`;
         }
         const need = o.count - o.have;
-        const onBoard = state.board.filter((n) => n === o.tier).length;
+        const onBoard = freeCells(o.tier).length;
         const got = Math.min(o.count, o.have + Math.min(onBoard, Math.max(need, 0)));
         const ready = need > 0 && onBoard >= need;
         const rush = o.rush > 0;
@@ -1626,6 +1626,22 @@
     play(150, 0.08, "sawtooth", 0.02);
   }
 
+  function protectedCells() {
+    const keep = new Set();
+    if (state && state.selected != null && state.board[state.selected]) keep.add(state.selected);
+    if (pointer && state && state.board[pointer.cell]) keep.add(pointer.cell);
+    return keep;
+  }
+
+  function freeCells(tier) {
+    const keep = protectedCells();
+    const pool = [];
+    for (let i = 0; i < SIZE; i++) {
+      if (state.board[i] === tier && !keep.has(i)) pool.push(i);
+    }
+    return pool;
+  }
+
   function claimOrder(index) {
     if (!state || state.busy || state.modal) return;
     if (!missionOpen(index)) return;
@@ -1637,10 +1653,10 @@
     }
     const need = order.count - order.have;
     if (need <= 0) return;
-    const pool = [];
-    for (let i = 0; i < SIZE; i++) if (state.board[i] === order.tier) pool.push(i);
+    const pool = freeCells(order.tier);
     if (pool.length < need) {
-      toast(`${josa(TIER[order.tier], "이", "가")} ${need}개 있어야 해요.`);
+      const total = state.board.filter((n) => n === order.tier).length;
+      toast(total >= need ? "고른 보석은 미션에 넣지 않아요." : `${josa(TIER[order.tier], "이", "가")} ${need}개 있어야 해요.`);
       play(150, 0.08, "sawtooth", 0.02);
       return;
     }
@@ -2126,13 +2142,6 @@
     return Number(cell.dataset.i);
   }
 
-  function orderFromPoint(x, y) {
-    const el = document.elementFromPoint(x, y);
-    const card = el && el.closest("[data-order]");
-    if (!card || !ordersEl.contains(card)) return null;
-    return Number(card.dataset.order);
-  }
-
   function hideGhost() {
     ghost.hidden = true;
     ghost.replaceChildren();
@@ -2184,8 +2193,6 @@
     });
     const hover = cellFromPoint(e.clientX, e.clientY);
     board.querySelectorAll(".cell").forEach((el) => el.classList.toggle("hover", Number(el.dataset.i) === hover));
-    const order = orderFromPoint(e.clientX, e.clientY);
-    ordersEl.querySelectorAll(".order").forEach((el) => el.classList.toggle("hover", Number(el.dataset.order) === order));
   }
 
   function onPointerUp(e) {
@@ -2194,12 +2201,13 @@
     pointer = null;
     hideGhost();
     if (info.moved && state.board[info.cell]) {
-      const order = orderFromPoint(e.clientX, e.clientY);
-      if (order != null) claimOrder(order);
-      else {
-        const target = cellFromPoint(e.clientX, e.clientY);
-        if (target != null) tryAction(info.cell, target);
+      const target = cellFromPoint(e.clientX, e.clientY);
+      if (target != null && target !== info.cell) {
+        tryAction(info.cell, target);
+        return;
       }
+      state.selected = info.cell;
+      render();
       return;
     }
     const cell = info.cell;
@@ -2270,7 +2278,7 @@
       "금빛 모서리는 바로 옆에서 합칠 수 있다는 표시입니다. 옆에 같은 조각이 더 있으면 연쇄로 합쳐집니다.",
       "짧게 이어 합치면 콤보가 조금 더 붙습니다. 콤보 주문은 그렇게 완료됩니다.",
       "미션은 처음에 하나입니다. 5레벨에 하나, 10레벨에 하나가 더 열립니다.",
-      "필요한 개수가 판에 모이면 카드가 밝아지고, 잠시 후 스스로 납품됩니다. 그 전에 합치면 납품은 멈춥니다. 눌러도 바로 넘길 수 있습니다.",
+      "필요한 개수가 판에 모이면 카드가 밝아지고, 잠시 후 스스로 납품됩니다. 먼저 고른 보석은 납품되지 않습니다. 그 전에 합치면 납품은 멈춥니다. 눌러도 바로 넘길 수 있습니다.",
       "성수 사냥 카드도 보석이 모이면 잠시 후 스스로 공격합니다. 세 번 맞추면 쓰러지고, 마지막에 보너스가 조금 더 나옵니다.",
       "금빛 테두리 칸에서 합치면 공명입니다. 다섯 번이면 상자가 열립니다.",
       "합칠 이웃이 하나뿐이면 그 조각을 한 번 더 눌러 바로 합칠 수 있습니다.",
@@ -2458,9 +2466,7 @@
       if (!order || (order.type !== "gem" && order.type !== "hunt")) continue;
       const need = order.count - order.have;
       if (need <= 0) continue;
-      let onBoard = 0;
-      for (let cell = 0; cell < SIZE; cell++) if (state.board[cell] === order.tier) onBoard += 1;
-      if (onBoard >= need) return i;
+      if (freeCells(order.tier).length >= need) return i;
     }
     return -1;
   }
