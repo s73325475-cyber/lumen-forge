@@ -932,9 +932,9 @@
     const step = state.tutorial;
     coach.hidden = step < 0;
     if (step >= 0) coachText.textContent = COACH[step];
-    board.classList.toggle("coach-on", step === 0);
-    tapWrap.classList.toggle("coach-on", step === 1);
-    ordersEl.classList.toggle("coach-on", step === 2);
+    board.classList.remove("coach-on");
+    tapWrap.classList.remove("coach-on");
+    ordersEl.classList.remove("coach-on");
   }
 
   function effectAt(spec, level) {
