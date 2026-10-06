@@ -2194,8 +2194,24 @@
     hoverEl = null;
   }
 
+  const GRAB_SLOP = 18;
+
+  function canMerge(from, to) {
+    if (!state || from == null || to == null || from === to) return false;
+    if (!cellOpen(from) || !cellOpen(to)) return false;
+    const a = state.board[from];
+    const b = state.board[to];
+    return !!(a && b && a === b && a < MAX_TIER && adjacent(from, to));
+  }
+
+  function grabCell(index) {
+    if (!state || !state.board[index]) return;
+    state.selected = index;
+    render();
+  }
+
   function onPointerDown(e) {
-    if (!state || state.busy || state.modal || e.button > 0) return;
+    if (!state || state.modal || e.button > 0) return;
     if (state.ended) {
       askContinue();
       return;
@@ -2225,7 +2241,7 @@
     if (!pointer || e.pointerId !== pointer.id) return;
     const dx = e.clientX - pointer.x;
     const dy = e.clientY - pointer.y;
-    if (!pointer.moved && dx * dx + dy * dy > 64) pointer.moved = true;
+    if (!pointer.moved && dx * dx + dy * dy > GRAB_SLOP * GRAB_SLOP) pointer.moved = true;
     if (!pointer.moved || !state.board[pointer.cell]) return;
     if (!pointer.shown) {
       pointer.shown = true;
@@ -2253,14 +2269,18 @@
     const info = pointer;
     pointer = null;
     hideGhost();
+    if (!state || state.modal) return;
+    if (state.busy) {
+      if (!info.moved) grabCell(info.cell);
+      return;
+    }
     if (info.moved && state.board[info.cell]) {
       const target = cellFromPoint(e.clientX, e.clientY);
-      if (target != null && target !== info.cell) {
+      if (canMerge(info.cell, target)) {
         tryAction(info.cell, target);
         return;
       }
-      state.selected = info.cell;
-      render();
+      grabCell(info.cell);
       return;
     }
     const cell = info.cell;
@@ -2272,7 +2292,8 @@
       return;
     }
     if (state.selected != null && state.selected !== cell) {
-      tryAction(state.selected, cell);
+      if (canMerge(state.selected, cell)) tryAction(state.selected, cell);
+      else grabCell(cell);
       return;
     }
     if (state.selected === cell) {
@@ -2286,8 +2307,15 @@
       render();
       return;
     }
-    state.selected = cell;
-    render();
+    grabCell(cell);
+  }
+
+  function onPointerCancel(e) {
+    if (!pointer || (e.pointerId != null && e.pointerId !== pointer.id)) return;
+    const info = pointer;
+    pointer = null;
+    hideGhost();
+    if (state && !state.modal && !info.moved) grabCell(info.cell);
   }
 
   function refreshStart() {
@@ -2453,10 +2481,9 @@
   board.addEventListener("pointerdown", onPointerDown);
   board.addEventListener("pointermove", onPointerMove);
   board.addEventListener("pointerup", onPointerUp);
-  board.addEventListener("pointercancel", () => {
-    pointer = null;
-    hideGhost();
-  });
+  board.addEventListener("pointercancel", onPointerCancel);
+  window.addEventListener("pointerup", onPointerUp);
+  window.addEventListener("pointercancel", onPointerCancel);
   board.addEventListener("dragstart", (e) => e.preventDefault());
   board.addEventListener("contextmenu", (e) => e.preventDefault());
 
