@@ -189,6 +189,17 @@
   let saveTimer = 0;
   let pointer = null;
   let starPts = [];
+  let cellEls = [];
+  let liftEl = null;
+  let hoverEl = null;
+  let shopCards = null;
+  let orderPaintKey = "";
+  let energyRing = "";
+  let energyAd = "";
+  let energyGain = "";
+  let energyMicro = "";
+  let energyMicroAt = 0;
+  let saveTick = 0;
 
   function fmt(n) {
     return Math.floor(n).toLocaleString("ko-KR");
@@ -307,6 +318,12 @@
     const n = openRows() * COLS;
     for (let i = 0; i < n; i++) if (!state.board[i]) list.push(i);
     return list;
+  }
+
+  function boardOpen() {
+    const n = openRows() * COLS;
+    for (let i = 0; i < n; i++) if (!state.board[i]) return true;
+    return false;
   }
 
   function randomEmpty() {
@@ -784,6 +801,9 @@
         return `<div class="${cls.join(" ")}" data-i="${i}" role="button" aria-label="${label}">${gem}</div>`;
       })
       .join("");
+    cellEls = [...board.children];
+    liftEl = null;
+    hoverEl = null;
   }
 
   function payout(order) {
@@ -796,6 +816,7 @@
   }
 
   function renderOrders() {
+    orderPaintKey = "";
     refreshOrderPay();
     ordersEl.innerHTML = state.orders
       .map((o, i) => {
@@ -1033,6 +1054,7 @@
     const autoBtn = document.getElementById("auto-buy");
     if (autoBtn) autoBtn.setAttribute("aria-pressed", state.autoBuy ? "true" : "false");
     shopRank.textContent = `${rankName()} · Lv.${state.level}`;
+    shopCards = null;
     shopList.innerHTML = UPS.map((spec) => {
       const lv = state.up[spec.id];
       const open = upgradeOpen(spec);
@@ -1079,8 +1101,8 @@
   }
 
   function paintAutoCool() {
-    if (!shopList) return;
-    const on = !!(state && state.autoBuy);
+    if (!shopList || !state) return;
+    const on = !!state.autoBuy;
     const plan = on ? upgradePlan() : [];
     const focus = plan.map((item) => item.id).join(",");
     if (focus !== autoFocusId) {
@@ -1088,14 +1110,19 @@
       if (plan.length) scrollUpgrade(plan[0].id);
     }
     const activeIds = new Set(plan.map((item) => item.id));
-    const p = on && plan.length ? Math.max(0, Math.min(1, autoBuyWait / AUTO_BUY_SEC)) : 0;
-    shopList.querySelectorAll(".up").forEach((card) => {
+    const cool = on && plan.length ? Math.max(0, Math.min(1, autoBuyWait / AUTO_BUY_SEC)).toFixed(2) : "0";
+    if (!shopCards || shopCards.length !== shopList.children.length) shopCards = [...shopList.children];
+    for (const card of shopCards) {
       const picked = on && !card.classList.contains("locked") && pickOn(card.dataset.id);
       const active = activeIds.has(card.dataset.id);
-      card.classList.toggle("aim", picked);
-      card.classList.toggle("cooling", active);
-      card.style.setProperty("--cool", active ? p.toFixed(3) : "0");
-    });
+      if (card.classList.contains("aim") !== picked) card.classList.toggle("aim", picked);
+      if (card.classList.contains("cooling") !== active) card.classList.toggle("cooling", active);
+      const next = active ? cool : "0";
+      if (card.dataset.cool !== next) {
+        card.dataset.cool = next;
+        card.style.setProperty("--cool", next);
+      }
+    }
   }
 
   function tuneOrder(order, maxTier, level, up) {
@@ -1133,19 +1160,34 @@
   }
 
   function paintEnergy() {
-    const p = Math.max(0, Math.min(1, state.energy / 100));
-    tapWrap.style.setProperty("--p", p.toFixed(3));
+    const p = Math.max(0, Math.min(1, state.energy / 100)).toFixed(3);
     const toward = Math.max(0, state.taps - (state.adTapMark | 0));
-    const adp = adTapReward ? 1 : Math.max(0, Math.min(1, toward / TAP_AD_EVERY));
-    tapWrap.style.setProperty("--tap-ad", adp.toFixed(3));
-    const gain = tapEnergy(state.up.hammer);
-    tapGain.textContent = state.overheat ? `달굼 ${state.heatLeft || HEAT_STONES}` : `에너지 +${gain.toFixed(1)}`;
-    if (microEl && state) {
-      const resting = empties().length === 0;
-      const auto = state.up.auto
-        ? (state.coins <= 0 ? " · 자동 정지" : resting ? " · 자동 대기" : ` · 자동 -${autoCoinRate(state.up.auto).toFixed(1)}`)
-        : "";
-      microEl.textContent = `에너지 ${Math.floor(Math.min(100, state.energy))} · 연타 ${fmt(state.taps)} · 합치기 ${fmt(state.merges)}${auto}`;
+    const adp = (adTapReward ? 1 : Math.max(0, Math.min(1, toward / TAP_AD_EVERY))).toFixed(3);
+    if (p !== energyRing) {
+      energyRing = p;
+      tapWrap.style.setProperty("--p", p);
+    }
+    if (adp !== energyAd) {
+      energyAd = adp;
+      tapWrap.style.setProperty("--tap-ad", adp);
+    }
+    const gainText = state.overheat ? `달굼 ${state.heatLeft || HEAT_STONES}` : `에너지 +${tapEnergy(state.up.hammer).toFixed(1)}`;
+    if (gainText !== energyGain) {
+      energyGain = gainText;
+      tapGain.textContent = gainText;
+    }
+    const now = performance.now();
+    if (now - energyMicroAt < 200) return;
+    energyMicroAt = now;
+    if (!microEl) return;
+    const resting = !boardOpen();
+    const auto = state.up.auto
+      ? (state.coins <= 0 ? " · 자동 정지" : resting ? " · 자동 대기" : ` · 자동 -${autoCoinRate(state.up.auto).toFixed(1)}`)
+      : "";
+    const micro = `에너지 ${Math.floor(Math.min(100, state.energy))} · 연타 ${fmt(state.taps)} · 합치기 ${fmt(state.merges)}${auto}`;
+    if (micro !== energyMicro) {
+      energyMicro = micro;
+      microEl.textContent = micro;
     }
   }
 
@@ -1153,7 +1195,7 @@
     if (!state) return;
     const elapsed = performance.now() - state.lastMerge;
     const alive = state.combo >= 2 && elapsed < COMBO_MS;
-    comboEl.hidden = !alive;
+    if (comboEl.hidden === alive) comboEl.hidden = !alive;
     if (!alive) return;
     comboLabel.textContent = `콤보 ${state.combo}`;
     comboLife.style.setProperty("--left", String(Math.max(0, 1 - elapsed / COMBO_MS)));
@@ -2146,8 +2188,10 @@
     ghost.hidden = true;
     ghost.replaceChildren();
     ghost.style.transform = "";
-    board.querySelectorAll(".lifting, .hover").forEach((el) => el.classList.remove("lifting", "hover"));
-    ordersEl.querySelectorAll(".hover").forEach((el) => el.classList.remove("hover"));
+    if (liftEl) liftEl.classList.remove("lifting");
+    if (hoverEl) hoverEl.classList.remove("hover");
+    liftEl = null;
+    hoverEl = null;
   }
 
   function onPointerDown(e) {
@@ -2183,16 +2227,25 @@
     const dy = e.clientY - pointer.y;
     if (!pointer.moved && dx * dx + dy * dy > 64) pointer.moved = true;
     if (!pointer.moved || !state.board[pointer.cell]) return;
-    const tier = state.board[pointer.cell];
-    ghost.hidden = false;
-    ghost.className = `gem ghost t${tier}`;
-    ghost.innerHTML = "";
+    if (!pointer.shown) {
+      pointer.shown = true;
+      ghost.className = `gem ghost t${state.board[pointer.cell]}`;
+      ghost.hidden = false;
+    }
     ghost.style.transform = `translate(${e.clientX - 28}px, ${e.clientY - 28}px)`;
-    board.querySelectorAll(".cell").forEach((el) => {
-      el.classList.toggle("lifting", Number(el.dataset.i) === pointer.cell);
-    });
+    const nextLift = cellEls[pointer.cell] || null;
+    if (liftEl !== nextLift) {
+      if (liftEl) liftEl.classList.remove("lifting");
+      liftEl = nextLift;
+      if (liftEl) liftEl.classList.add("lifting");
+    }
     const hover = cellFromPoint(e.clientX, e.clientY);
-    board.querySelectorAll(".cell").forEach((el) => el.classList.toggle("hover", Number(el.dataset.i) === hover));
+    const nextHover = hover != null ? cellEls[hover] || null : null;
+    if (hoverEl !== nextHover) {
+      if (hoverEl) hoverEl.classList.remove("hover");
+      hoverEl = nextHover;
+      if (hoverEl && hoverEl !== liftEl) hoverEl.classList.add("hover");
+    }
   }
 
   function onPointerUp(e) {
@@ -2417,34 +2470,60 @@
 
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) save();
+    else watchDeploy();
   });
+  window.addEventListener("pagehide", () => save());
+
+  const bootedCss = document.querySelector('link[rel="stylesheet"]').getAttribute("href");
+  const bootedJs = document.querySelector('script[src*="game.js"]').getAttribute("src");
+
+  function watchDeploy() {
+    if (state && state.modal) return;
+    fetch("index.html?t=" + Date.now(), { cache: "no-store" })
+      .then((res) => (res.ok ? res.text() : ""))
+      .then((html) => {
+        if (!html) return;
+        const css = (html.match(/styles\.css\?v=\d+/) || [])[0];
+        const js = (html.match(/game\.js\?v=\d+/) || [])[0];
+        if (!css || !js) return;
+        if (css === bootedCss && js === bootedJs) return;
+        if (state && state.modal) return;
+        if (started && state) save();
+        location.reload();
+      })
+      .catch(() => {});
+  }
+
+  setInterval(watchDeploy, 45000);
 
   function fitStars() {
     const rect = app.getBoundingClientRect();
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    starsCanvas.width = Math.max(1, rect.width * dpr);
-    starsCanvas.height = Math.max(1, rect.height * dpr);
-    starPts = Array.from({ length: 72 }, () => ({
-      x: Math.random(),
-      y: Math.random(),
-      s: Math.random() * 1.4 + 0.25,
-      v: 0.008 + Math.random() * 0.03,
-      a: 0.25 + Math.random() * 0.7,
-      warm: Math.random() < 0.18,
-    }));
+    starsCanvas.width = Math.max(1, Math.round(rect.width));
+    starsCanvas.height = Math.max(1, Math.round(rect.height));
+    const count = rect.width < 520 ? 28 : 40;
+    starPts = Array.from({ length: count }, () => {
+      const warm = Math.random() < 0.18;
+      const a = (0.28 + Math.random() * 0.55).toFixed(2);
+      return {
+        x: Math.random(),
+        y: Math.random(),
+        s: Math.random() * 1.5 + 0.7,
+        v: 0.008 + Math.random() * 0.03,
+        color: warm ? `rgba(255, 186, 120, ${a})` : `rgba(255, 255, 255, ${a})`,
+      };
+    });
   }
 
   function drawStars(dt) {
+    if (document.hidden || !starPts.length) return;
     const w = starsCanvas.width;
     const h = starsCanvas.height;
     starCtx.clearRect(0, 0, w, h);
     for (const star of starPts) {
       if (!REDUCE) star.y -= star.v * dt;
       if (star.y < 0) star.y = 1;
-      starCtx.fillStyle = star.warm ? `rgba(255, 186, 120, ${star.a})` : `rgba(255, 255, 255, ${star.a})`;
-      starCtx.beginPath();
-      starCtx.arc(star.x * w, star.y * h, star.s * (window.devicePixelRatio || 1), 0, Math.PI * 2);
-      starCtx.fill();
+      starCtx.fillStyle = star.color;
+      starCtx.fillRect(star.x * w, star.y * h, star.s, star.s);
     }
   }
 
@@ -2474,16 +2553,16 @@
   function paintAutoOrder() {
     if (!ordersEl) return;
     const ratio = autoOrderIndex >= 0 ? Math.max(0, Math.min(1, autoOrderWait / AUTO_ORDER_SEC)) : 0;
-    ordersEl.querySelectorAll(".order").forEach((card) => {
+    const key = autoOrderIndex + ":" + Math.round(ratio * 40);
+    if (key === orderPaintKey) return;
+    orderPaintKey = key;
+    const pct = (ratio * 100).toFixed(1) + "%";
+    for (const card of ordersEl.children) {
       const inner = card.querySelector(".bar i");
       const on = Number(card.dataset.order) === autoOrderIndex;
-      card.classList.toggle("charging", on);
-      if (!inner) return;
-      if (inner.dataset.fill == null || inner.dataset.fill === "") {
-        inner.dataset.fill = String(parseFloat(inner.style.width) || 0);
-      }
-      inner.style.width = `${on ? ratio * 100 : Number(inner.dataset.fill)}%`;
-    });
+      if (card.classList.contains("charging") !== on) card.classList.toggle("charging", on);
+      if (on && inner) inner.style.width = pct;
+    }
   }
 
   function tickAutoOrder(dt) {
@@ -2512,7 +2591,7 @@
     if (started && state && !state.modal) tickBlaze(dt);
     if (started && state && !state.modal && state.up.auto > 0) {
       const coinRate = autoCoinRate(state.up.auto);
-      const resting = empties().length === 0;
+      const resting = !boardOpen();
       if (state.coins <= 0) {
         if (!autoDry) {
           autoDry = true;
@@ -2535,7 +2614,6 @@
             autoDry = true;
             toast("두드리기를 누르세요~");
           }
-          saveSoon();
         }
         if (state.energy >= 100) resolveEnergy();
         else paintEnergy();
@@ -2560,6 +2638,11 @@
     if (started && state) tickAdSell(dt);
     paintCombo();
     drawStars(dt);
+    saveTick += dt;
+    if (saveTick >= 3 && started && state) {
+      saveTick = 0;
+      save();
+    }
     requestAnimationFrame(loop);
   }
 
